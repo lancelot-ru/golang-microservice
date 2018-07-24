@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package msg;
-
-message Message {
-	string system = 1;
-	int32 operation_id = 2;
-	string action = 3;
-}
