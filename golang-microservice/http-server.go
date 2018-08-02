@@ -10,9 +10,7 @@ import (
 
 func answerSystemsHTTP(url string, m Message) Message {
 	b, err := json.Marshal(m)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "marshalling")
 	log.Println(string(b))
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(b))
@@ -21,15 +19,11 @@ func answerSystemsHTTP(url string, m Message) Message {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err, "client")
 
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&m)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "decoding JSON")
 
 	defer resp.Body.Close()
 	return m
@@ -39,20 +33,24 @@ func handleJSON(rw http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
 	var m Message
 	err := decoder.Decode(&m)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "decoding JSON")
+
 	if m.System == "A" {
 		fl := findAId(m.OperationID, m.Action)
-		if fl == true {
+		if fl == 1 {
 			log.Println("Already in the table!")
 			m.System = "SRV"
 			m.OperationID = 0
 			m.Action = "Already in the table!"
-		} else {
+		} else if fl == 0 {
 			insertNewAction(m.OperationID, m.Action)
 			log.Println("Sending to B...")
 			m = answerSystemsHTTP("http://localhost:8083/b", m)
+		} else {
+			log.Println("Error!")
+			m.System = "SRV"
+			m.OperationID = 0
+			m.Action = "Error!"
 		}
 
 		showAllRows()

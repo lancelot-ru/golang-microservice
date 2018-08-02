@@ -22,24 +22,18 @@ func answerSystemsTCP(address string, m Message) Message {
 	conn, _ := net.Dial("tcp", address)
 	defer conn.Close()
 	data1, err := proto.Marshal(msg1)
-	if err != nil {
-		log.Fatal("Marshaling error:", err)
-	}
+	checkError(err, "marshalling")
 	conn.Write(data1)
 
 	// listen for reply
 	data2 := make([]byte, 4096)
 	n, err := conn.Read(data2)
 
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "listening")
 	log.Println("Decoding Protobuf message...")
 	pdata := new(msg.Message)
 	err = proto.Unmarshal(data2[0:n], pdata)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "unmarshalling")
 
 	m.System = pdata.GetSystem()
 	m.OperationID = int(pdata.GetOperationId())
@@ -60,15 +54,20 @@ func handleReceivedData(data *msg.Message) Message {
 
 	if m.System == "A" {
 		fl := findAId(m.OperationID, m.Action)
-		if fl == true {
+		if fl == 1 {
 			log.Println("Already in the table!")
 			m.System = "SRV"
 			m.OperationID = 0
 			m.Action = "Already in the table!"
-		} else {
+		} else if fl == 0 {
 			insertNewAction(m.OperationID, m.Action)
 			log.Println("Sending to B...")
 			m = answerSystemsTCP("localhost:8083", m)
+		} else {
+			log.Println("Error!")
+			m.System = "SRV"
+			m.OperationID = 0
+			m.Action = "Error!"
 		}
 
 		showAllRows()
@@ -99,15 +98,11 @@ func handleProtoMessage(conn net.Conn) {
 	defer conn.Close()
 	data := make([]byte, 4096)
 	n, err := conn.Read(data)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "reading")
 	log.Println("Decoding Protobuf message...")
 	pdata := new(msg.Message)
 	err = proto.Unmarshal(data[0:n], pdata)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "unmarshalling")
 
 	m := handleReceivedData(pdata)
 
@@ -118,9 +113,7 @@ func handleProtoMessage(conn net.Conn) {
 	}
 	log.Println("Encoding it back...")
 	data2, err := proto.Marshal(msg2)
-	if err != nil {
-		log.Fatal("Marshaling error:", err)
-	}
+	checkError(err, "marshalling")
 	conn.Write(data2)
 }
 
