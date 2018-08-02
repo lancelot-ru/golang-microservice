@@ -19,13 +19,17 @@ type Message struct {
 	Action      string
 }
 
+func checkError(err error, place string) {
+	if err != nil {
+		log.Println("Error", err, "at", place)
+	}
+}
+
 func handleHTTP(rw http.ResponseWriter, request *http.Request) {
 	decoder := json.NewDecoder(request.Body)
 	var m Message
 	err := decoder.Decode(&m)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "decoding JSON")
 
 	var newMessage Message
 	newMessage.System = "B"
@@ -44,15 +48,11 @@ func handleTCP(conn net.Conn) {
 	defer conn.Close()
 	data1 := make([]byte, 4096)
 	n, err := conn.Read(data1)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "reading Protobuf")
 	log.Println("Decoding Protobuf message")
 	pdata := new(msg.Message)
 	err = proto.Unmarshal(data1[0:n], pdata)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "unmarshalling")
 
 	var m Message
 	m.System = pdata.GetSystem()
@@ -68,9 +68,7 @@ func handleTCP(conn net.Conn) {
 	}
 	log.Println("Encoding it back...")
 	data2, err := proto.Marshal(msg2)
-	if err != nil {
-		log.Fatal("marshaling error: ", err)
-	}
+	checkError(err, "marshalling")
 	conn.Write(data2)
 }
 
