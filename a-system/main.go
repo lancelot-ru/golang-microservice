@@ -19,11 +19,15 @@ type Message struct {
 	Action      string
 }
 
+func checkError(err error, place string) {
+	if err != nil {
+		log.Println("Error", err, "at", place)
+	}
+}
+
 func sendMessage(url string, m Message) {
 	b, err := json.Marshal(m)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "marshalling")
 	log.Println(string(b))
 
 	req, err := http.NewRequest("POST", url, bytes.NewReader(b))
@@ -32,14 +36,10 @@ func sendMessage(url string, m Message) {
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err, "client")
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&m)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "decoding JSON")
 	if m.System == "SRV" {
 		log.Println(m.Action)
 	} else {
@@ -59,24 +59,18 @@ func sendMessageTCP(address string, m Message) {
 	conn, _ := net.Dial("tcp", address)
 	defer conn.Close()
 	data1, err := proto.Marshal(msg1)
-	if err != nil {
-		log.Fatal("Marshaling error:", err)
-	}
+	checkError(err, "marshalling")
 	conn.Write(data1)
 
 	// listen for reply
 	data2 := make([]byte, 4096)
 	n, err := conn.Read(data2)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "reading")
 	log.Println("Decoding Protobuf message...")
 
 	pdata := new(msg.Message)
 	err = proto.Unmarshal(data2[0:n], pdata)
-	if err != nil {
-		log.Println(err)
-	}
+	checkError(err, "unmarshalling")
 
 	m.System = pdata.GetSystem()
 	m.OperationID = int(pdata.GetOperationId())
@@ -93,7 +87,7 @@ func main() {
 		sendMessage("http://localhost:8080", initial)
 	}
 	if s == "tcp" {
-		initial := Message{"A", 13, "river"}
+		initial := Message{"A", 17, "gaze"}
 		sendMessageTCP("localhost:8082", initial)
 	}
 }
